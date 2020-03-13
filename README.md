@@ -21,7 +21,7 @@ try:
         'login' 'jsmith',
         'password': 'XXXXXXXXXXXXX'
     })
-    new.user.user_set_status(new_user['id'], 'active')
+    lms.user_set_status(new_user['id'], 'active')
 except talentlms.UserAlreadyExistsError:
     pass
 ```
