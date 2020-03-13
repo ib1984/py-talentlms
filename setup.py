@@ -8,7 +8,7 @@ with open('README.md') as readme:
 
 setup(
     name='talentlms',
-    version='1.0.0',
+    version='1.0.1',
     description='TalentLMS API Python library',
     long_description=long_description,
     long_description_content_type='text/markdown',
