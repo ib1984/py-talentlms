@@ -1,6 +1,6 @@
 # TalentLMS API Python library
 
-Python impormentation of the [TalentLMS API](https://www.talentlms.com/pages/docs/TalentLMS-API-Documentation.pdf).
+Python implementation of the [TalentLMS API](https://www.talentlms.com/pages/docs/TalentLMS-API-Documentation.pdf).
 
 Method names correspond one-to-one to API method names but have underscores separating words in API method names.
 
