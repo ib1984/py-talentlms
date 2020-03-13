@@ -1,4 +1,4 @@
-# TalentLMS API
+# TalentLMS API Python library
 
 Python impormentation of the [TalentLMS API](https://www.talentlms.com/pages/docs/TalentLMS-API-Documentation.pdf).
 
