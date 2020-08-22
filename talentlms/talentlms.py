@@ -64,8 +64,12 @@ class api(object):
          - A list of dicts with all users' abridged properties if search_term is
            not defined.
 
-        Example:
-        ???
+        Examples:
+        >>> api.users(40457)
+        {'id': '40457', 'login': 'john.smith', 'first_name': 'John', ... }
+
+        >>> api.users()
+        [{'id': '1', 'login': ... }, ... ]
         """
         if search_term is None:
             return self.get('users')
@@ -77,12 +81,42 @@ class api(object):
             return self.get('users', {'username': search_term})
 
     def user_login(self, login, password, logout_redirect=None):
-        """???"""
-        raise NotImplementedError
+        """Create a one-time login link for a user.
 
-    def user_logout(self, user_id, redirect_url=None):
-        """???"""
-        raise NotImplementedError
+        Returns a dict with 'user_id' and URL in 'login_key' or raises an
+        appropriate exception:
+         - UserDoesNotExistError
+         - UserInactiveError
+         - PasswordIncorrectError
+
+        Example:
+        >>> api.login('john.smith', 'XXXXXXXX')
+        {'user_id': '40457',
+         'login_key': 'https://learn.example.com/index/autologin/key:xxxxx...'}
+        """
+        data = {'login': login, 'password': password}
+
+        if logout_redirect is not None:
+            data['logout_redirect'] = logout_redirect
+
+        return self.post('userlogin', data)
+
+    def user_logout(self, user_id, next_url=None):
+        """Create a logout link for a user.
+
+        Returns a dict with 'redirect_url' or raises UserDoesNotExistError. Does
+        not actually logout the user until the user uses the link.
+
+        Examples:
+        >>> api.user_logout(40457, 'https://www.example.com')
+        {'redirect_url': 'https://example.talentlms.com/index/logout/next:xxxx...'}
+        """
+        data = {'user_id': user_id}
+
+        if next_url is not None:
+            data['next'] = next_url
+
+        return self.post('userlogout', data)
 
     def user_signup(self, first_name, last_name, email, login, password, custom_fields={}):
         """Create a user.
@@ -346,7 +380,27 @@ class api(object):
         raise NotImplementedError
 
     def get_custom_registration_fields(self):
-        """Get all user custom fields."""
+        """Get all user custom fields.
+
+        Returns a dict with custom fields' names as keys, and their property
+        dicts as values.
+
+        Example:
+        >>> api.get_custom_registration_fields()
+        {'Company Name': {
+            'key': 'custom_field_1',
+            'type': 'text',
+            'name': 'Company Name',
+            'mandatory': 'yes',
+            'visible_on_reports': 'yes',
+            'dropdown_values': '',
+            'checkbox_status': 'off',
+            'selective_availability': 'no',
+            'branch': None,
+            'main_domain_availability': None,
+            'previous_key': None,
+            'order': 1}, ... }
+        """
         custom_fields = self.get('getcustomregistrationfields')
         return {f['name']: f for f in custom_fields}
 
@@ -419,7 +473,15 @@ class UserDoesNotExistError(TalentLMSError):
     pass
 
 
+class UserInactiveError(TalentLMSError):
+    pass
+
+
 class WeakPasswordError(TalentLMSError):
+    pass
+
+
+class PasswordIncorrectError(TalentLMSError):
     pass
 
 
@@ -437,7 +499,9 @@ def raise_error(message, params):
         'The requested user is already enrolled in this course': UserAlreadyEnrolledError,
         'The requested user is not enrolled in this course': UserNotEnrolledError,
         'Password is not strong enough (should have at least (1) upper case letter, at least (1) lower case letter, at least (1) number, at least (8) characters in length)': WeakPasswordError,
-        'The requested course is already a member of this branch': CourseExistsError
+        'The requested course is already a member of this branch': CourseExistsError,
+        'Your account is inactive. Please activate the account using the instructions sent to you via e-mail. If you did not receive the e-mail, check your spam folder.': UserInactiveError,
+        'Your login or password is incorrect. Please try again, making sure that CAPS LOCK key is off': PasswordIncorrectError
     }
 
     e = exc_map.get(message, TalentLMSError)
