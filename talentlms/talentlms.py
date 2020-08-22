@@ -54,15 +54,19 @@ class api(object):
     def users(self, search_term=None):
         """Fetch users from TalentLMS.
 
-        Returns a single user's properties if search_term is defined.
-
         The search_term is treated as:
          - User ID if it is numeric (user ID).
          - Email if it is a string with '@' in it.
          - User login if it is a plain string.
 
-        Returns list of all users (with abridged list of properties) if
-        search_term is not defined."""
+        Raises UserDoesNotExistError or returns either:
+         - A dict with a single user's properties (if search_term defined).
+         - A list of dicts with all users' abridged properties if search_term is
+           not defined.
+
+        Example:
+        ???
+        """
         if search_term is None:
             return self.get('users')
         elif isinstance(search_term, int) or search_term.isdigit():
@@ -80,10 +84,21 @@ class api(object):
         """???"""
         raise NotImplementedError
 
-    def user_signup(self, first_name, last_name, email, login, password, custom_fields):
+    def user_signup(self, first_name, last_name, email, login, password, custom_fields={}):
         """Create a user.
 
-        custom_fields is a dict with custom field names as keys."""
+        Argument custom_fields is a dict with custom field names as keys.
+
+        Returns dict with new user's 'id' and other properties, or raises an
+        appropriate exception:
+         - UserAlreadyExistsError
+         - WeakPasswordError
+
+        Example:
+        >>> api.user_signup('John', 'Smith', 'jsmith@example.com', 'john.smith',
+        ...                 'XXXXXXXX', {'custom_field_1': 'Company LLC'})
+        {'id': 40456, 'login': 'john.smith', 'first_name': 'John', ... }
+        """
         return self.post('usersignup', {'first_name': first_name,
                                         'last_name': last_name,
                                         'email': email,
@@ -93,7 +108,14 @@ class api(object):
                                         })
 
     def delete_user(self, user_id, deleted_by_user_id=None, permanent=False):
-        """Delete a user."""
+        """Delete a user.
+
+        Returns a simple success message, or raises UserDoesNotExistError.
+
+        Example:
+        >>> api.delete_user(40456, permanent=True)
+        {'message': 'Operation completed successfully'}
+        """
         data = {'user_id': int(user_id), 'permanent': ['no', 'yes'][permanent]}
 
         if deleted_by_user_id is not None:
@@ -107,19 +129,33 @@ class api(object):
         At least one of the following properties must be present in the
         user_info dict:
           first_name, last_name, email, login, password, bio, timezone, credits,
-          custom_field_XXX (where XXX is the index of the custom field)."""
+          custom_field_XXX (where XXX is the index of the custom field).
+
+        Returns updated user properties, or raises UserDoesNotExistError.
+
+        Example:
+        >>> api.edit_user(40457, {'login': 'johnsmith'})
+        {'id': '40457', 'login': 'johnsmith', 'first_name': 'John', ... }
+        """
         if len(user_info) == 0:
-            raise ValueError('Must have at least one user info keyword argument')
+            raise ValueError('user_info must have at least one property')
 
-        user_info['user_id'] = int(user_id)
-
-        return self.post('edituser', user_info)
+        return self.post('edituser', {'user_id': int(user_id), **user_info})
 
     def user_set_status(self, user_id, status):
         """Set user status.
 
         The 'status' is boolean: True - user is activated, False - user is
         deactivated.
+
+        Returns dict with 'user_id' and updated 'status', or raises an
+        appropriate exception:
+         - UserDoesNotExistError
+         - WeakPasswordError
+
+        Example:
+        >>> api.user_set_status(40457, False)
+        {'user_id': '40457', 'status': 'inactive'}
         """
         return self.get('usersetstatus', {'user_id': int(user_id),
                                           'status': ('inactive', 'active')[status]})
