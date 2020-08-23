@@ -256,7 +256,7 @@ class api(object):
          - A list of dicts with all courses' abridged properties if search_term
            is not defined.
 
-        Example:
+        Examples:
         >>> api.courses()
         [{'id': '1', 'name': 'Introduction', 'category_id': '11', ... }, ... ]
 
@@ -274,7 +274,14 @@ class api(object):
         raise NotImplementedError
 
     def delete_course(self, course_id, deleted_by_user_id=None):
-        """Delete a course."""
+        """Delete a course.
+
+        Returns a simple message on success or raises CourseDoesNotExistError.
+
+        Example:
+        >>> api.delete_course(1)
+        {'message': 'Operation completed successfully'}
+        """
         data = {'course_id': int(course_id)}
 
         if deleted_by_user_id is not None:
@@ -285,8 +292,22 @@ class api(object):
     def categories(self, category_id=None):
         """Fetch category/categories.
 
-        Returns a single category if category_id is defined. Otherwise
-        returns all categories."""
+        Raises CategoryDoesNotExistError or returns either:
+         - A dict with a single category's properties, including the courses
+           (if category_id defined).
+         - A list of dicts with all categories' (without courses) if
+           category_id is not defined.
+
+        Examples:
+        >>> api.categories(1)
+        {'id': '1', 'name': 'Example category', 'price': '&#36;0.00',
+         'parent_category_id': '2',
+         'courses': [ {'id': '15', 'name': 'Example course', ... }, ... ] }
+
+        >>> api.categories()
+        [{'id': '1', 'name': 'Example category', 'price': '&#36;0.00',
+          'parent_category_id': '2'}, ... ]
+        """
         if category_id is None:
             return self.get('categories')
         else:
@@ -295,8 +316,36 @@ class api(object):
     def groups(self, group_id=None):
         """Fetch group(s).
 
-        Returns a single group if group_id is defined. Otherwise returns all
-        groups."""
+        Raises GroupDoesNotExistError or returns either:
+         - A dict with a single groups's properties, including the group's
+           users (if group_id defined).
+         - A list of dicts with all groups' (without users) if group_id is not
+           defined.
+
+        Examples:
+        >>> api.groups()
+        [{'id': '1',
+          'name': 'Sales Staff',
+          'description': 'Sales Staff of Company LLC',
+          'key': 'xxxxxxxxx',
+          'price': '&#36;0.00',
+          'owner_id': '30',
+          'belongs_to_branch': None,
+          'max_redemptions': None,
+          'redemptions_sofar': None}, ... ]
+
+        >>> api.groups(1)
+        {'id': '1',
+         'name': 'Sales Staff',
+         'description': 'Sales Staff of Company LLC',
+         'key': 'xxxxxxxxx',
+         'price': '&#36;0.00',
+         'owner_id': '30',
+         'belongs_to_branch': None,
+         'max_redemptions': None,
+         'redemptions_sofar': None,
+         'users': [{'id': '12345', 'name': 'J. Smith'}, ...] }
+        """
         if group_id is None:
             return self.get('groups')
         else:
@@ -308,8 +357,15 @@ class api(object):
         raise NotImplementedError
 
     def delete_group(self, group_id, deleted_by_user_id=None):
-        """Delete a group."""
-        data = {'course_id': int(group_id)}
+        """Delete a group.
+
+        Returns a simple message on success or raises GroupDoesNotExistError.
+
+        Example:
+        >>> api.delete_group(1)
+        {'message': 'Operation completed successfully'}
+        """
+        data = {'group_id': int(group_id)}
 
         if deleted_by_user_id is not None:
             data['deleted_by_user_id'] = int(deleted_by_user_id)
@@ -319,8 +375,40 @@ class api(object):
     def branches(self, branch_id=None):
         """Fetch branch(es).
 
-        Returns a single branch if branch_id is defined. Otherwise returns all
-        branches."""
+        Raises BranchDoesNotExistError or returns either:
+         - A dict with a single branch's properties, including its users and
+           courses (if branch_id is defined).
+         - A list of dicts with all branches' (without users and courses) if
+           branch_id is not defined.
+
+        Examples:
+        >>> api.branches()
+        [{'id': '2',
+          'name': 'sample',
+          'description': 'Sample Branch',
+          'avatar': 'https://...',
+          'theme': 'Default',
+          'badge_set_id': '1',
+          'timezone': '(GMT -07:00) Pacific Time (US & Canada)',
+          'signup_method': 'email',
+          'internal_announcement': '...',
+          'external_announcement': '...',
+          'language': 'en',
+          'user_type_id': '4',
+          'user_type': 'Learner-Type',
+          'group_id': '8',
+          'registration_email_restriction': None,
+          'users_limit': None,
+          'disallow_global_login': '1',
+          'payment_processor': '',
+          'currency': 'US Dollar',
+          'paypal_email': '',
+          'ecommerce_subscription': '0',
+          'ecommerce_subscription_price': '0',
+          'ecommerce_subscription_interval': '',
+          'ecommerce_subscription_trial_period': '0',
+          'ecommerce_credits': '0'}, ... ]
+        """
         if branch_id is None:
             return self.get('branches')
         else:
@@ -350,8 +438,15 @@ class api(object):
         raise NotImplementedError
 
     def delete_branch(self, branch_id, deleted_by_user_id=None):
-        """Delete a branch."""
-        data = {'course_id': int(branch_id)}
+        """Delete a branch.
+
+        Returns a simple message on success or raises BranchDoesNotExistError.
+
+        Example:
+        >>> api.delete_branch(1)
+        {'message': 'Operation completed successfully'}
+        """
+        data = {'branch_id': int(branch_id)}
 
         if deleted_by_user_id is not None:
             data['deleted_by_user_id'] = int(deleted_by_user_id)
@@ -404,12 +499,51 @@ class api(object):
                                                  'course_id': int(course_id)})
 
     def get_user_status_in_course(self, user_id, course_id):
-        """Get user's status in the course."""
+        """Get user's status in the course.
+
+        Returns a dict of the user's status in the course or raises an
+        appropriate exception:
+         - UserDoesNotExistError
+         - UserNotEnrolledError
+         - CourseDoesNotExistError
+
+        Example:
+        >>> api.get_user_status_in_course(3, 348)
+        {'role': 'learner',
+         'enrolled_on': '25/12/2019, 03:58:40',
+         'enrolled_on_timestamp': '1577246320',
+         'completion_status': 'Completed',
+         'completion_percentage': '100',
+         'completed_on': '25/12/2019, 03:58:50',
+         'completed_on_timestamp': '1577246330',
+         'expired_on': '',
+         'expired_on_timestamp': None,
+         'total_time': '0s',
+         'units': [{'id': '3163',
+                    'name': 'Introduction',
+                    'type': 'SCORM | xAPI | cmi5',
+                    'completion_status': 'Completed',
+                    'completed_on': '07/07/2020, 11:41:18',
+                    'completed_on_timestamp': '1594118478',
+                    'score': '',
+                    'total_time': '0s'}, ...]}
+        """
         return self.get('getuserstatusincourse', {'user_id': int(user_id),
                                                   'course_id': int(course_id)})
 
     def reset_user_progress(self, user_id, course_id):
-        """Reset user's progress in the course."""
+        """Reset user's progress in the course.
+
+        Returns a simple message on success or raises and appropriate
+        exception:
+         - UserDoesNotExistError
+         - UserNotEnrolledError
+         - CourseDoesNotExistError
+
+        Example:
+        >>> api.reset_user_progress(3, 348)
+        {'message': 'Operation completed successfully'}
+        """
         return self.get('resetuserprogress', {'user_id': int(user_id),
                                               'course_id': int(course_id)})
 
@@ -422,7 +556,18 @@ class api(object):
         raise NotImplementedError
 
     def add_course_to_branch(self, course_id, branch_id):
-        """Add the course to the branch."""
+        """Add the course to the branch.
+
+        Returns a dict with keys ['course_id', 'branch_id', 'branch_name'] or
+        raises an appropriate exception:
+         - CourseDoesNotExistError
+         - BranchDoesNotExistError
+         - CourseExistsError
+
+        Example:
+        >>> api.add_course_to_branch(208, 76)
+        {'course_id': '208', 'branch_id': '76', 'branch_name': 'test'}
+        """
         return self.get('addcoursetobranch', {'course_id': int(course_id),
                                               'branch_id': int(branch_id)})
 
@@ -516,7 +661,29 @@ class api(object):
         return self.get('getcustomcoursefields')
 
     def category_leafs_and_courses(self, category_id):
-        """???"""
+        """Get subcategories and their courses (and courses' units) for a
+        category.
+
+        Returns a dict with subcategories as keys, or raises CategoryDoesNotExistError.
+
+        Example:
+        >>> api.category_leafs_and_courses(52)
+        {'21': {'id': '21',
+                'name': 'Sample Sub-category',
+                'price': '&#36;0.00',
+                'parent_category_id': '52',
+                'courses': [{'id': '17',
+                             'name': 'Sample Course',
+                             'description': '...',
+                             'shared': '1',
+                             'shared_url': 'https://...',
+                             'avatar': 'https://...',
+                             'big_avatar': 'https://...',
+                             'units': [ ... ]
+                            }]
+               }, ...
+        }
+        """
         return self.get('categoryleafsandcourses', {'id': int(category_id)})
 
     def get_user_progress_in_units(self, user_id, unit_id):
@@ -653,6 +820,18 @@ class CourseDoesNotExistError(TalentLMSError):
     pass
 
 
+class CategoryDoesNotExistError(TalentLMSError):
+    pass
+
+
+class GroupDoesNotExistError(TalentLMSError):
+    pass
+
+
+class BranchDoesNotExistError(TalentLMSError):
+    pass
+
+
 def raise_error(message, params):
     exc_map = {
         'The requested API action does not exist': InvalidRequestError,
@@ -666,7 +845,10 @@ def raise_error(message, params):
         'The requested course is already a member of this branch': CourseExistsError,
         'Your account is inactive. Please activate the account using the instructions sent to you via e-mail. If you did not receive the e-mail, check your spam folder.': UserInactiveError,
         'Your login or password is incorrect. Please try again, making sure that CAPS LOCK key is off': PasswordIncorrectError,
-        'The requested course does not exist': CourseDoesNotExistError
+        'The requested course does not exist': CourseDoesNotExistError,
+        'The requested category does not exist': CategoryDoesNotExistError,
+        'The requested group does not exist': GroupDoesNotExistError,
+        'The requested branch does not exist': BranchDoesNotExistError,
     }
 
     e = exc_map.get(message, TalentLMSError)
