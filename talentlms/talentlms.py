@@ -197,8 +197,18 @@ class api(object):
     def courses(self, course_id=None):
         """Fetch course(s).
 
-        Returns a single course if course_id is set. Otherwise returns all
-        courses.
+        Raises CourseDoesNotExistError or returns either:
+         - A dict with a single course's properties, including the list of
+           enrolled users (if search_term defined).
+         - A list of dicts with all courses' abridged properties if search_term
+           is not defined.
+
+        Example:
+        >>> api.courses()
+        [{'id': '1', 'name': 'Introduction', 'category_id': '11', ... }, ... ]
+
+        >>> api.courses(1)
+        {'id': '1', 'name': 'Introduction', 'category_id': '11', ... }
         """
         if course_id is None:
             return self.get('courses')
@@ -308,13 +318,35 @@ class api(object):
         raise NotImplementedError
 
     def add_user_to_course(self, user_id, course_id, role='learner'):
-        """Add a user to the course."""
+        """Enroll a user to a course.
+
+        Returns list with dict of the original API request's arguments, or
+        raises one of these exceptions:
+         - UserDoesNotExistError
+         - CourseDoesNotExistError
+         - UserAlreadyEnrolledError
+
+        Example:
+        >>> api.add_user_to_course(40457, 378)
+        [{'user_id': '40457', 'course_id': '378', 'role': 'learner'}]
+        """
         return self.post('addusertocourse', {'user_id': int(user_id),
                                              'course_id': int(course_id),
                                              'role': role})
 
     def remove_user_from_course(self, user_id, course_id):
-        """Remove the user from a course."""
+        """Remove a user from a course.
+
+        Returns a dict with keys ['user_id', 'course_id', 'course_name'], or
+        raises one of these exceptions:
+         - UserDoesNotExistError
+         - CourseDoesNotExistError
+         - UserNotEnrolledError
+
+        Example:
+        >>> api.remove_user_from_course(40457, 378)
+        {'user_id': '40457', 'course_id': '378', 'course_name': 'Sample Course'}
+        """
         return self.get('removeuserfromcourse', {'user_id': int(user_id),
                                                  'course_id': int(course_id)})
 
@@ -489,6 +521,10 @@ class CourseExistsError(TalentLMSError):
     pass
 
 
+class CourseDoesNotExistError(TalentLMSError):
+    pass
+
+
 def raise_error(message, params):
     exc_map = {
         'The requested API action does not exist': InvalidRequestError,
@@ -501,7 +537,8 @@ def raise_error(message, params):
         'Password is not strong enough (should have at least (1) upper case letter, at least (1) lower case letter, at least (1) number, at least (8) characters in length)': WeakPasswordError,
         'The requested course is already a member of this branch': CourseExistsError,
         'Your account is inactive. Please activate the account using the instructions sent to you via e-mail. If you did not receive the e-mail, check your spam folder.': UserInactiveError,
-        'Your login or password is incorrect. Please try again, making sure that CAPS LOCK key is off': PasswordIncorrectError
+        'Your login or password is incorrect. Please try again, making sure that CAPS LOCK key is off': PasswordIncorrectError,
+        'The requested course does not exist': CourseDoesNotExistError
     }
 
     e = exc_map.get(message, TalentLMSError)
