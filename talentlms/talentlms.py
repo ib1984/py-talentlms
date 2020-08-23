@@ -11,6 +11,59 @@ except ImportError:
 
 
 class api(object):
+    events = {
+        'user_login_user': 'User log in',
+        'user_register_user': 'User registration',
+        'user_self_register': 'User self registration',
+        'user_delete_user': 'User deletion',
+        'user_undelete_user': 'Undelete user',
+        'user_property_change': 'User update',
+        'user_create_payment': 'User payment',
+        'user_upgrade_level': 'User level',
+        'user_unlock_badge': 'User badge',
+        'course_create_course': 'Course creation',
+        'course_delete_course': 'Course deletion',
+        'course_undelete_course': 'Undelete course',
+        'course_property_change': 'Course update',
+        'course_add_user': 'Added user to course',
+        'course_remove_user': 'Removed user from course',
+        'course_completion': 'User completed course',
+        'course_failure': 'User did not pass course',
+        'course_reset_user_progress': 'Reset progress',
+        'branch_create_branch': 'Branch creation',
+        'branch_delete_branch': 'Branch deletion',
+        'branch_property_change': 'Branch update',
+        'branch_add_user': 'Added user to branch',
+        'branch_remove_user': 'Removed user from branch',
+        'branch_add_course': 'Added course to branch',
+        'branch_remove_course': 'Removed course from branch',
+        'group_create_group': 'Group creation',
+        'group_delete_group': 'Group deletion',
+        'group_property_change': 'Group update',
+        'group_add_user': 'Added user to group',
+        'group_remove_user': 'Removed user from group',
+        'group_add_course': 'Added course to group',
+        'group_remove_course': 'Removed course from group',
+        'certification_issue_certification': 'Certification issued to user',
+        'certification_refresh_certification': 'Certification renewed',
+        'certification_remove_certification': 'Certification removed',
+        'certification_expire_certification': 'Certification expired',
+        'unitprogress_test_completion': 'Test completion',
+        'unitprogress_test_failed': 'Test fail',
+        'unitprogress_survey_completion': 'Survey completion',
+        'unitprogress_assignment_answered': 'Assignment submission',
+        'unitprogress_assignment_graded': 'Assignment grading',
+        'unitprogress_ilt_graded': 'ILT grading',
+        'notification_create_notification': 'Notification creation',
+        'notification_delete_notification': 'Notification deletion',
+        'notification_update_notification': 'Notification update',
+        'automation_create_automation': 'Automation creation',
+        'automation_delete_automation': 'Automation deletion',
+        'automation_update_automation': 'Automation update',
+        'reports_create_custom_report': 'Custom report creation',
+        'reports_delete_custom_report': 'Custom report deletion',
+        'reports_update_custom_report': 'Custom report update'}
+
     def __init__(self, domain, api_key, ssl=True):
         self.domain = domain
         self.ssl = ssl
@@ -393,7 +446,29 @@ class api(object):
 
     def get_users_by_custom_field(self, custom_field_value):
         """Get all users with custom_field_value in one of their custom
-        fields."""
+        fields.
+
+        Returns a dict with user_ids as keys and user properties dicts as
+        values.
+
+        Example:
+        >>> api.get_users_by_custom_field('Company LLC')
+        {'40457':
+          {'id': '40457',
+           'login': 'john.smith',
+           'first_name': 'John',
+           'last_name': 'Smith',
+           'email': 'johnsmith@example.org',
+           'status': 'active',
+           'language': 'English',
+           'deactivation_date': '',
+           'created_on': '22/08/2020, 11:20:31',
+           'last_updated': '23/08/2020, 05:55:01',
+           'last_updated_timestamp': '1598158501',
+           'certifications': []},
+          ...
+        }
+        """
         return self.get('getusersbycustomfield',
                         {'custom_field_value': custom_field_value})
 
@@ -461,15 +536,68 @@ class api(object):
         raise NotImplementedError
 
     def get_timeline(self, event_type):
-        """Get the last 200 events of the type event_type from the timeline."""
+        """Get the last 200 events of the type event_type from the timeline.
+
+        Available event types and their explanations are defined in api.events
+        dict.
+
+        Returns a list of dicts with event properties, or raises ValueError if
+        event_type is not valid.
+
+        Example:
+        >>> api.get_timeline('user_login_user')
+        [{'action': 'user_login_user',
+          'message': 'John Smith signed in',
+          'timestamp': '23/08/2020, 05:58:53',
+          'unix_timestamp': '1598158733',
+          'user_id': '40457',
+          'user_username': 'john.smith',
+          'user_email': 'john.smith@example.org',
+          'user_fullname': 'John Smith',
+          'object_id': '-',
+          'object_name': '-',
+          'secondary_object_id': '-',
+          'secondary_object_name': '-',
+          'event_counter': '1'}, ... ]
+        """
+        if event_type not in self.events.keys():
+            raise ValueError('not a valid event type: %s' % (event_type,))
+
         return self.get('gettimeline', {'event_type': event_type})
 
     def siteinfo(self):
-        """???"""
+        """Get basic info on TalentLMS instance.
+
+        Returns a dict with the instance properties.
+
+        Example:
+        >>> api.siteinfo()
+        {'total_users': '1234',
+         'total_courses': '123',
+         'total_categories': '12',
+         'total_groups': '23',
+         'total_branches': '34',
+         'monthly_active_users': 123,
+         'signup_method': 'email',
+         'paypal_email': '',
+         'domain_map': 'learn.example.com',
+         'date_format': 'DDMMYYYY'}
+        """
         return self.get('siteinfo')
 
     def ratelimit(self):
-        """???"""
+        """Get current API request rate limit.
+
+        Returns a dict with hourly limit, remaining API requests, and reset
+        date in UNIX timestamp and formatted formats.
+
+        Example:
+        >>> api.ratelimit()
+        {'limit': '10000',
+         'remaining': 9986,
+         'reset': '1598160603',
+         'formatted_reset': '23/08/2020, 06:30'}
+        """
         return self.get('ratelimit')
 
 
