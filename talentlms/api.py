@@ -67,7 +67,7 @@ class api(object):
         self.api_url = f'{protocol}://{domain}/api/v1'
         self.auth = HTTPBasicAuth(api_key, '')
 
-    def get(self, api_method, api_params=None):
+    def __get(self, api_method, api_params=None):
         """Send a GET API request to TalentLMS.
 
         api_method is an API endpoint and should not contain spaces, e.g.: 'users'"""
@@ -88,7 +88,7 @@ class api(object):
 
         return result
 
-    def post(self, api_method, api_params=None):
+    def __post(self, api_method, api_params=None):
         """Send a POST API request to TalentLMS.
 
         api_method is an API endpoint and should not contain spaces, e.g.: 'users'"""
@@ -121,13 +121,13 @@ class api(object):
         [{'id': '1', 'login': ... }, ... ]
         """
         if search_term is None:
-            return self.get('users')
+            return self.__get('users')
         elif isinstance(search_term, int) or search_term.isdigit():
-            return self.get('users', {'id': int(search_term)})
+            return self.__get('users', {'id': int(search_term)})
         elif '@' in search_term:
-            return self.get('users', {'email': search_term})
+            return self.__get('users', {'email': search_term})
         else:
-            return self.get('users', {'username': search_term})
+            return self.__get('users', {'username': search_term})
 
     def user_login(self, login, password, logout_redirect=None):
         """Create a one-time login link for a user.
@@ -148,7 +148,7 @@ class api(object):
         if logout_redirect is not None:
             data['logout_redirect'] = logout_redirect
 
-        return self.post('userlogin', data)
+        return self.__post('userlogin', data)
 
     def user_logout(self, user_id, next_url=None):
         """Create a logout link for a user.
@@ -165,7 +165,7 @@ class api(object):
         if next_url is not None:
             data['next'] = next_url
 
-        return self.post('userlogout', data)
+        return self.__post('userlogout', data)
 
     def user_signup(self, first_name, last_name, email, login, password, custom_fields=None):
         """Create a user.
@@ -185,12 +185,12 @@ class api(object):
         if custom_fields is not None:
             custom_fields = {}
 
-        return self.post('usersignup', {'first_name': first_name,
-                                        'last_name': last_name,
-                                        'email': email,
-                                        'login': login,
-                                        'password': password,
-                                        **custom_fields})
+        return self.__post('usersignup', {'first_name': first_name,
+                                          'last_name': last_name,
+                                          'email': email,
+                                          'login': login,
+                                          'password': password,
+                                          **custom_fields})
 
     def delete_user(self, user_id, deleted_by_user_id=None, permanent=False):
         """Delete a user.
@@ -206,7 +206,7 @@ class api(object):
         if deleted_by_user_id is not None:
             data['deleted_by_user_id'] = int(deleted_by_user_id)
 
-        return self.post('deleteuser', data)
+        return self.__post('deleteuser', data)
 
     def edit_user(self, user_id, user_info):
         """Update user properties.
@@ -225,7 +225,7 @@ class api(object):
         if len(user_info) == 0:
             raise ValueError('user_info must have at least one property')
 
-        return self.post('edituser', {'user_id': int(user_id), **user_info})
+        return self.__post('edituser', {'user_id': int(user_id), **user_info})
 
     def user_set_status(self, user_id, status):
         """Set user status.
@@ -242,8 +242,8 @@ class api(object):
         >>> api.user_set_status(40457, False)
         {'user_id': '40457', 'status': 'inactive'}
         """
-        return self.get('usersetstatus', {'user_id': int(user_id),
-                                          'status': ('inactive', 'active')[status]})
+        return self.__get('usersetstatus', {'user_id': int(user_id),
+                                            'status': ('inactive', 'active')[status]})
 
     def courses(self, course_id=None):
         """Fetch course(s).
@@ -262,9 +262,9 @@ class api(object):
         {'id': '1', 'name': 'Introduction', 'category_id': '11', ... }
         """
         if course_id is None:
-            return self.get('courses')
+            return self.__get('courses')
         else:
-            return self.get('courses', {'id': int(course_id)})
+            return self.__get('courses', {'id': int(course_id)})
 
     def create_course(self, name, description, code=None, price=None, time_limit=None,
                       category_id=None, creator_id=None):
@@ -285,7 +285,7 @@ class api(object):
         if deleted_by_user_id is not None:
             data['deleted_by_user_id'] = int(deleted_by_user_id)
 
-        return self.post('deletecourse', data)
+        return self.__post('deletecourse', data)
 
     def categories(self, category_id=None):
         """Fetch category/categories.
@@ -307,9 +307,9 @@ class api(object):
           'parent_category_id': '2'}, ... ]
         """
         if category_id is None:
-            return self.get('categories')
+            return self.__get('categories')
         else:
-            return self.get('categories', {'id': int(category_id)})
+            return self.__get('categories', {'id': int(category_id)})
 
     def groups(self, group_id=None):
         """Fetch group(s).
@@ -345,9 +345,9 @@ class api(object):
          'users': [{'id': '12345', 'name': 'J. Smith'}, ...] }
         """
         if group_id is None:
-            return self.get('groups')
+            return self.__get('groups')
         else:
-            return self.get('groups', {'id': int(group_id)})
+            return self.__get('groups', {'id': int(group_id)})
 
     def create_group(self, name, description=None, key=None, price=None, creator_id=None, max_redemptions=None):
         """???"""
@@ -367,7 +367,7 @@ class api(object):
         if deleted_by_user_id is not None:
             data['deleted_by_user_id'] = int(deleted_by_user_id)
 
-        return self.post('deletegroup', data)
+        return self.__post('deletegroup', data)
 
     def branches(self, branch_id=None):
         """Fetch branch(es).
@@ -407,9 +407,9 @@ class api(object):
           'ecommerce_credits': '0'}, ... ]
         """
         if branch_id is None:
-            return self.get('branches')
+            return self.__get('branches')
         else:
-            return self.get('branches', {'id': int(branch_id)})
+            return self.__get('branches', {'id': int(branch_id)})
 
     def create_branch(self, name, **branch_info):
         """name
@@ -448,7 +448,7 @@ class api(object):
         if deleted_by_user_id is not None:
             data['deleted_by_user_id'] = int(deleted_by_user_id)
 
-        return self.post('deletebranch', data)
+        return self.__post('deletebranch', data)
 
     def branch_set_status(self, branch_id, status):
         """Set branch status.
@@ -463,8 +463,8 @@ class api(object):
         >>> api.branch_set_status(84, False)
         {'branch_id': '84', 'status': 'inactive'}
         """
-        return self.get('branchsetstatus', {'branch_id': int(branch_id),
-                                            'status': ('inactive', 'active')[status]})
+        return self.__get('branchsetstatus', {'branch_id': int(branch_id),
+                                              'status': ('inactive', 'active')[status]})
 
     def forgot_username(self, email, domain_url):
         """???"""
@@ -487,9 +487,9 @@ class api(object):
         >>> api.add_user_to_course(40457, 378)
         [{'user_id': '40457', 'course_id': '378', 'role': 'learner'}]
         """
-        return self.post('addusertocourse', {'user_id': int(user_id),
-                                             'course_id': int(course_id),
-                                             'role': role})
+        return self.__post('addusertocourse', {'user_id': int(user_id),
+                                               'course_id': int(course_id),
+                                               'role': role})
 
     def remove_user_from_course(self, user_id, course_id):
         """Remove a user from a course.
@@ -504,8 +504,8 @@ class api(object):
         >>> api.remove_user_from_course(40457, 378)
         {'user_id': '40457', 'course_id': '378', 'course_name': 'Sample Course'}
         """
-        return self.get('removeuserfromcourse', {'user_id': int(user_id),
-                                                 'course_id': int(course_id)})
+        return self.__get('removeuserfromcourse', {'user_id': int(user_id),
+                                                   'course_id': int(course_id)})
 
     def get_user_status_in_course(self, user_id, course_id):
         """Get user's status in the course.
@@ -537,8 +537,8 @@ class api(object):
                     'score': '',
                     'total_time': '0s'}, ...]}
         """
-        return self.get('getuserstatusincourse', {'user_id': int(user_id),
-                                                  'course_id': int(course_id)})
+        return self.__get('getuserstatusincourse', {'user_id': int(user_id),
+                                                    'course_id': int(course_id)})
 
     def reset_user_progress(self, user_id, course_id):
         """Reset user's progress in the course.
@@ -553,8 +553,8 @@ class api(object):
         >>> api.reset_user_progress(3, 348)
         {'message': 'Operation completed successfully'}
         """
-        return self.get('resetuserprogress', {'user_id': int(user_id),
-                                              'course_id': int(course_id)})
+        return self.__get('resetuserprogress', {'user_id': int(user_id),
+                                                'course_id': int(course_id)})
 
     def add_user_to_branch(self, user_id, branch_id):
         """Add a user to a branch.
@@ -569,8 +569,8 @@ class api(object):
         >>> api.add_user_to_branch(123, 83)
         {'user_id': '123', 'branch_id': '83', 'branch_name': 'sample'}
         """
-        return self.get('addusertobranch', {'user_id': int(user_id),
-                                            'branch_id': int(branch_id)})
+        return self.__get('addusertobranch', {'user_id': int(user_id),
+                                              'branch_id': int(branch_id)})
 
     def remove_user_from_branch(self, user_id, branch_id):
         """Remove user from a branch.
@@ -585,8 +585,8 @@ class api(object):
         >>> api.remove_user_from_branch(123, 83)
         {'user_id': '123', 'branch_id': '83', 'branch_name': 'sample'}
         """
-        return self.get('removeuserfrombranch', {'user_id': int(user_id),
-                                                 'branch_id': int(branch_id)})
+        return self.__get('removeuserfrombranch', {'user_id': int(user_id),
+                                                   'branch_id': int(branch_id)})
 
     def add_course_to_branch(self, course_id, branch_id):
         """Add the course to the branch.
@@ -601,8 +601,8 @@ class api(object):
         >>> api.add_course_to_branch(208, 76)
         {'course_id': '208', 'branch_id': '76', 'branch_name': 'test'}
         """
-        return self.get('addcoursetobranch', {'course_id': int(course_id),
-                                              'branch_id': int(branch_id)})
+        return self.__get('addcoursetobranch', {'course_id': int(course_id),
+                                                'branch_id': int(branch_id)})
 
     def add_user_to_group(self, user_id, group_key):
         """Add a user to a group.
@@ -617,8 +617,8 @@ class api(object):
         >>> api.add_user_to_group(123, 'xxxxxxxxxxx')
         {'user_id': '123', 'group_id': '83', 'group_name': 'Sample Group'}
         """
-        return self.get('addusertogroup', {'user_id': int(user_id),
-                                           'group_key': str(group_key)})
+        return self.__get('addusertogroup', {'user_id': int(user_id),
+                                             'group_key': str(group_key)})
 
     def remove_user_from_group(self, user_id, group_id):
         """Remove a user from a group.
@@ -633,8 +633,8 @@ class api(object):
         >>> api.remove_user_from_group(123, 83)
         {'user_id': '123', 'group_id': '83', 'group_name': 'Sample Group'}
         """
-        return self.get('removeuserfromgroup', {'user_id': int(user_id),
-                                                'group_id': int(group_id)})
+        return self.__get('removeuserfromgroup', {'user_id': int(user_id),
+                                                  'group_id': int(group_id)})
 
     def add_course_to_group(self, course_id, group_id):
         """Add a course to a group.
@@ -651,8 +651,8 @@ class api(object):
         >>> api.add_course_to_group(83, 208)
         {'course_id': '208', 'group_id': '83', 'group_name': 'Sample Group'}
         """
-        return self.get('addcoursetogroup', {'course_id': int(course_id),
-                                             'group_id': int(group_id)})
+        return self.__get('addcoursetogroup', {'course_id': int(course_id),
+                                               'group_id': int(group_id)})
 
     def go_to_course(self, user_id, course_id, logout_redirect=None, course_completed_redirect=None,
                      header_hidden_options=None):
@@ -684,12 +684,12 @@ class api(object):
           ...
         }
         """
-        return self.get('getusersbycustomfield', {'custom_field_value': custom_field_value})
+        return self.__get('getusersbycustomfield', {'custom_field_value': custom_field_value})
 
     def get_courses_by_custom_field(self, custom_field_value):
         """Get all courses with custom_field_value in one of their custom
         fields."""
-        return self.get('getcoursesbycustomfield', {'custom_field_value': custom_field_value})
+        return self.__get('getcoursesbycustomfield', {'custom_field_value': custom_field_value})
 
     def buy_course(self, user_id, course_id, coupon=None):
         """???"""
@@ -721,12 +721,12 @@ class api(object):
             'previous_key': None,
             'order': 1}, ... }
         """
-        custom_fields = self.get('getcustomregistrationfields')
+        custom_fields = self.__get('getcustomregistrationfields')
         return {f['name']: f for f in custom_fields}
 
     def get_custom_course_fields(self):
         """Get all course custom fields."""
-        return self.get('getcustomcoursefields')
+        return self.__get('getcustomcoursefields')
 
     def category_leafs_and_courses(self, category_id):
         """Get subcategories and their courses (and courses' units) for a
@@ -752,7 +752,7 @@ class api(object):
                }, ...
         }
         """
-        return self.get('categoryleafsandcourses', {'id': int(category_id)})
+        return self.__get('categoryleafsandcourses', {'id': int(category_id)})
 
     def get_users_progress_in_units(self, unit_id, user_id=None):
         """Get user(s) progress in a unit.
@@ -778,7 +778,7 @@ class api(object):
         if user_id is not None:
             data['user_id'] = user_id
 
-        return self.get('getusersprogressinunits', data)
+        return self.__get('getusersprogressinunits', data)
 
     def get_test_answers(self, test_id, user_id):
         """Get user's answers on a test.
@@ -810,8 +810,8 @@ class api(object):
               'user_answers': {'1': '...'}}, ... ]
         }
         """
-        return self.get('gettestanswers', {'test_id': int(test_id),
-                                           'user_id': int(user_id)})
+        return self.__get('gettestanswers', {'test_id': int(test_id),
+                                             'user_id': int(user_id)})
 
     def get_survey_answers(self, survey_id, user_id):
         """Get user's answers on a survey.
@@ -843,7 +843,7 @@ class api(object):
                         'user_answers': ['...']}, ... ]
         }
         """
-        return self.get('getsurveyanswers', {'survey_id': int(survey_id), 'user_id': int(user_id)})
+        return self.__get('getsurveyanswers', {'survey_id': int(survey_id), 'user_id': int(user_id)})
 
     def get_ilt_sessions(self, ilt_id):
         """???"""
@@ -877,7 +877,7 @@ class api(object):
         if event_type not in self.events.keys():
             raise ValueError('not a valid event type: %s' % (event_type, ))
 
-        return self.get('gettimeline', {'event_type': event_type})
+        return self.__get('gettimeline', {'event_type': event_type})
 
     def siteinfo(self):
         """Get basic info on TalentLMS instance.
@@ -897,7 +897,7 @@ class api(object):
          'domain_map': 'learn.example.com',
          'date_format': 'DDMMYYYY'}
         """
-        return self.get('siteinfo')
+        return self.__get('siteinfo')
 
     def ratelimit(self):
         """Get current API request rate limit.
@@ -912,4 +912,4 @@ class api(object):
          'reset': '1598160603',
          'formatted_reset': '23/08/2020, 06:30'}
         """
-        return self.get('ratelimit')
+        return self.__get('ratelimit')
