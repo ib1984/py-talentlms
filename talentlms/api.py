@@ -2,12 +2,15 @@ import json
 from urllib.parse import quote_plus
 
 import requests
-from requests.auth import HTTPBasicAuth
 
 from .exceptions import raise_error
 
 
-class api(object):
+class api:
+    """
+    TalentLMS API Python library
+    ----------------------------
+    """
     events = {
         'user_login_user': 'User log in',
         'user_register_user': 'User registration',
@@ -65,12 +68,17 @@ class api(object):
     def __init__(self, domain, api_key, ssl=True):
         protocol = ('http', 'https')[ssl]
         self.api_url = f'{protocol}://{domain}/api/v1'
-        self.auth = HTTPBasicAuth(api_key, '')
+        self.auth = requests.auth.HTTPBasicAuth(api_key, '')
 
     def __get(self, api_method, api_params=None):
         """Send a GET API request to TalentLMS.
 
-        api_method is an API endpoint and should not contain spaces, e.g.: 'users'"""
+        Arguments:
+         - api_method is an API endpoint and should not contain spaces, e.g.: 'users'
+         - api_params is a dict with API request parameters
+
+        Returns list or dict, or raises an appropriate exception.
+        """
         params_list = []
 
         if api_params is not None:
@@ -91,7 +99,12 @@ class api(object):
     def __post(self, api_method, api_params=None):
         """Send a POST API request to TalentLMS.
 
-        api_method is an API endpoint and should not contain spaces, e.g.: 'users'"""
+        Arguments:
+         - api_method is an API endpoint and should not contain spaces, e.g.: 'users'
+         - api_params is a dict with API request parameters
+
+        Returns list or dict, or raises an appropriate exception.
+        """
         resp = requests.post(f'{self.api_url}/{api_method}', data=api_params, auth=self.auth)
         result = json.loads(resp.text)
 
@@ -109,16 +122,90 @@ class api(object):
          - User login if it is a plain string.
 
         Raises UserDoesNotExistError or returns either:
-         - A dict with a single user's properties (if search_term defined).
-         - A list of dicts with all users' abridged properties if search_term is
+         - A dict with a single user's properties (if search_term defined),
+           including user's courses, certifications, groups, branches, and
+           badges.
+         - A list of dicts with all users' abridged properties (no courses,
+           certifications, groups, branches, or badges) if search_term is
            not defined.
 
-        Examples:
+        Example:
         >>> api.users(40457)
-        {'id': '40457', 'login': 'john.smith', 'first_name': 'John', ... }
-
-        >>> api.users()
-        [{'id': '1', 'login': ... }, ... ]
+        {
+          "id": "40457",
+          "login": "john.smith",
+          "first_name": "john",
+          "last_name": "Smith",
+          "email": "john.smith@example.org",
+          "restrict_email": "1",
+          "user_type": "Learner-Type",
+          "timezone": "...",
+          "language": "English",
+          "status": "active",
+          "deactivation_date": "",
+          "level": "1",
+          "points": "0",
+          "created_on": "12/11/2015, 07:06:53",
+          "last_updated": "21/08/2020, 07:05:00",
+          "last_updated_timestamp": "1597989900",
+          "avatar": "https://...",
+          "bio": "...",
+          "login_key": "https://...",
+          "custom_field_1": "Company LLC",
+          "custom_field_2": "on",
+          "courses": [
+            {
+              "id": "123",
+              "name": "Sample Course",
+              "role": "learner",
+              "enrolled_on": "15/05/2020, 04:25:35",
+              "enrolled_on_timestamp": "1589513135",
+              "completed_on": "",
+              "completed_on_timestamp": null,
+              "completion_status": "incomplete",
+              "completion_percentage": "0",
+              "expired_on": "",
+              "expired_on_timestamp": null,
+              "total_time": "3m 17s"
+            },
+            ...
+          ],
+          "branches": [
+            {
+              "id": "76",
+              "name": "sample"
+            },
+            ...
+          ],
+          "groups": [
+            {
+              "id": "49",
+              "name": "Sample group"
+            },
+            ...
+          ],
+          "certifications": [
+            {
+              "course_id": "234",
+              "course_name": "Sample Certification Exam",
+              "unique_id": "5c45-01a0-f1f4-7687",
+              "issued_date": "06/08/2019",
+              "expiration_date": "06/08/2021",
+              "download_url": "https://...",
+              "public_url": "https://..."
+            },
+            ...
+          ],
+          "badges": [
+            {
+              "name":"Activity Newbie",
+              "type":"activity",
+              "criteria":"4 logins",
+              "issued_on":"05/11/2014, 14:44:23"
+            },
+            ...
+          ]
+        }
         """
         if search_term is None:
             return self.__get('users')
@@ -140,8 +227,10 @@ class api(object):
 
         Example:
         >>> api.login('john.smith', 'XXXXXXXX')
-        {'user_id': '40457',
-         'login_key': 'https://learn.example.com/index/autologin/key:xxxxx...'}
+        {
+          "user_id": "40457",
+          "login_key": "https://learn.example.com/index/autologin/key:xxxxx..."
+        }
         """
         data = {'login': login, 'password': password}
 
@@ -156,9 +245,11 @@ class api(object):
         Returns a dict with 'redirect_url' or raises UserDoesNotExistError. Does
         not actually logout the user until the user uses the link.
 
-        Examples:
+        Example:
         >>> api.user_logout(40457, 'https://www.example.com')
-        {'redirect_url': 'https://example.talentlms.com/index/logout/next:xxxx...'}
+        {
+          "redirect_url": "https://example.talentlms.com/index/logout/next:xxxx..."
+        }
         """
         data = {'user_id': user_id}
 
@@ -172,17 +263,38 @@ class api(object):
 
         Argument custom_fields is a dict with custom field names as keys.
 
-        Returns dict with new user's 'id' and other properties, or raises an
-        appropriate exception:
+        Returns dict with new user's properties, or raises an appropriate
+        exception:
          - UserAlreadyExistsError
          - WeakPasswordError
 
         Example:
         >>> api.user_signup('John', 'Smith', 'jsmith@example.com', 'john.smith',
         ...                 'XXXXXXXX', {'custom_field_1': 'Company LLC'})
-        {'id': 40456, 'login': 'john.smith', 'first_name': 'John', ... }
+        {
+          "id": 40457,
+          "login": "john.smith",
+          "first_name": "John",
+          "last_name": "Smith",
+          "email": "jsmith@example.com",
+          "restrict_email": "0",
+          "user_type": "Learner-Type",
+          "timezone": "...",
+          "language": "English",
+          "status": "inactive",
+          "level": "1",
+          "points": "0",
+          "created_on": "25/08/2020, 14:53:30",
+          "last_updated": "25/08/2020, 14:53:30",
+          "last_updated_timestamp": 1598363610,
+          "avatar": "https://...",
+          "bio": null,
+          "login_key": "https://...",
+          "custom_field_1": "Company LLC",
+          "custom_field_2": "off",
+        }
         """
-        if custom_fields is not None:
+        if custom_fields is None:
             custom_fields = {}
 
         return self.__post('usersignup', {'first_name': first_name,
@@ -199,7 +311,9 @@ class api(object):
 
         Example:
         >>> api.delete_user(40456, permanent=True)
-        {'message': 'Operation completed successfully'}
+        {
+          "message": "Operation completed successfully"
+        }
         """
         data = {'user_id': int(user_id), 'permanent': ['no', 'yes'][permanent]}
 
@@ -220,7 +334,29 @@ class api(object):
 
         Example:
         >>> api.edit_user(40457, {'login': 'johnsmith'})
-        {'id': '40457', 'login': 'johnsmith', 'first_name': 'John', ... }
+        {
+          "id": "40457",
+          "login": "johnsmith",
+          "first_name": "John",
+          "last_name": "Smith",
+          "email": "jsmith@example.com",
+          "restrict_email": "0",
+          "user_type": "Learner-Type",
+          "timezone": "...",
+          "language": "English",
+          "status": "inactive",
+          "deactivation_date": "",
+          "level": "1",
+          "points": "0",
+          "created_on": "25/08/2020, 14:53:30",
+          "last_updated": "25/08/2020, 14:56:31",
+          "last_updated_timestamp": 1598363791,
+          "avatar": "https://...",
+          "bio": null,
+          "login_key": "https://...",
+          "custom_field_1": "Company LLC",
+          "custom_field_2": "off"
+        }
         """
         if len(user_info) == 0:
             raise ValueError('user_info must have at least one property')
@@ -230,8 +366,7 @@ class api(object):
     def user_set_status(self, user_id, status):
         """Set user status.
 
-        The 'status' is boolean: True - user is activated, False - user is
-        deactivated.
+        The 'status' is either 'active' or 'inactive'.
 
         Returns dict with 'user_id' and updated 'status', or raises an
         appropriate exception:
@@ -239,27 +374,85 @@ class api(object):
          - WeakPasswordError
 
         Example:
-        >>> api.user_set_status(40457, False)
-        {'user_id': '40457', 'status': 'inactive'}
+        >>> api.user_set_status(40457, 'inactive')
+        {
+          "user_id": "40457",
+          "status": "inactive"
+        }
         """
+        if status not in ['active', 'inactive']:
+            raise ValueError(f'Invalid status: {status}. Must be "active" or "inactive"')
+
         return self.__get('usersetstatus', {'user_id': int(user_id),
-                                            'status': ('inactive', 'active')[status]})
+                                            'status': status})
 
     def courses(self, course_id=None):
         """Fetch course(s).
 
         Raises CourseDoesNotExistError or returns either:
-         - A dict with a single course's properties, including the list of
-           enrolled users (if search_term defined).
-         - A list of dicts with all courses' abridged properties if search_term
-           is not defined.
+         - A dict with a single course's properties, including the list of enrolled usersi, course
+           units, and prerequisites (if search_term defined).
+         - A list of dicts with all courses' abridged properties (no users, units, or prerequisites)
+           sif search_term is not defined.
 
-        Examples:
-        >>> api.courses()
-        [{'id': '1', 'name': 'Introduction', 'category_id': '11', ... }, ... ]
-
-        >>> api.courses(1)
-        {'id': '1', 'name': 'Introduction', 'category_id': '11', ... }
+        Example:
+        >>> api.courses(123)
+        {
+          "id": "123",
+          "name": "Sample Course",
+          "code": "",
+          "category_id": "21",
+          "description": "...",
+          "price": "&#36;0.00",
+          "status": "active",
+          "creation_date": "21/03/2017, 07:18:23",
+          "last_update_on": "13/07/2020, 11:29:44",
+          "creator_id": "30",
+          "hide_from_catalog": "0",
+          "time_limit": "0",
+          "level": null,
+          "shared": "0",
+          "shared_url": "",
+          "avatar": "https://...",
+          "big_avatar": "https://...",
+          "certification": null,
+          "certification_duration": null,
+          "users": [
+            {
+              "id": "40457",
+              "name": "J. Smith",
+              "role": "learner",
+              "enrolled_on": "24/11/2019, 09:52:37",
+              "enrolled_on_timestamp": "1574589157",
+              "completed_on": "",
+              "completed_on_timestamp": null,
+              "completion_percentage": "0",
+              "expired_on": "",
+              "expired_on_timestamp": null,
+              "total_time": null
+            },
+            ...
+          ],
+          "units": [
+            {
+              "id": "3474",
+              "type": "SCORM | xAPI | cmi5",
+              "name": "Sample SCORM Unit",
+              "url": "https://..."
+            },
+            ...
+          ],
+          "rules": [
+            "All units must be completed"
+          ],
+          "prerequisites": [
+            {
+              "course_id": "234",
+              "course_name": "Sample Prerequisite Course"
+            },
+            ...
+          ]
+        }
         """
         if course_id is None:
             return self.__get('courses')
@@ -278,7 +471,9 @@ class api(object):
 
         Example:
         >>> api.delete_course(1)
-        {'message': 'Operation completed successfully'}
+        {
+          "message": "Operation completed successfully"
+        }
         """
         data = {'course_id': int(course_id)}
 
@@ -296,15 +491,30 @@ class api(object):
          - A list of dicts with all categories' (without courses) if
            category_id is not defined.
 
-        Examples:
-        >>> api.categories(1)
-        {'id': '1', 'name': 'Example category', 'price': '&#36;0.00',
-         'parent_category_id': '2',
-         'courses': [ {'id': '15', 'name': 'Example course', ... }, ... ] }
-
-        >>> api.categories()
-        [{'id': '1', 'name': 'Example category', 'price': '&#36;0.00',
-          'parent_category_id': '2'}, ... ]
+        Example:
+        >>> api.categories(11)
+        {
+          "id": "12",
+          "name": "Sample Category",
+          "price": "&#36;0.00",
+          "parent_category_id": "11",
+          "courses": [
+            {
+              "id": "123",
+              "name": "Sample Course",
+              "description": "...",
+              "price": "&#36;0.00",
+              "status": "active",
+              "hide_from_catalog": "0",
+              "level": null,
+              "shared": "0",
+              "shared_url": "",
+              "avatar": "https://...",
+              "big_avatar": "https://..."
+            },
+            ...
+          ]
+        }
         """
         if category_id is None:
             return self.__get('categories')
@@ -320,29 +530,30 @@ class api(object):
          - A list of dicts with all groups' (without users) if group_id is not
            defined.
 
-        Examples:
-        >>> api.groups()
-        [{'id': '1',
-          'name': 'Sales Staff',
-          'description': 'Sales Staff of Company LLC',
-          'key': 'xxxxxxxxx',
-          'price': '&#36;0.00',
-          'owner_id': '30',
-          'belongs_to_branch': None,
-          'max_redemptions': None,
-          'redemptions_sofar': None}, ... ]
-
+        Example:
         >>> api.groups(1)
-        {'id': '1',
-         'name': 'Sales Staff',
-         'description': 'Sales Staff of Company LLC',
-         'key': 'xxxxxxxxx',
-         'price': '&#36;0.00',
-         'owner_id': '30',
-         'belongs_to_branch': None,
-         'max_redemptions': None,
-         'redemptions_sofar': None,
-         'users': [{'id': '12345', 'name': 'J. Smith'}, ...] }
+        {
+          "id": "1",
+          "name": "Sales Staff",
+          "description": "Sales Staff of Company LLC",
+          "key": "xxxxxxxxx",
+          "price": "&#36;0.00",
+          "owner_id": "30",
+          "belongs_to_branch": None,
+          "max_redemptions": None,
+          "redemptions_sofar": None,
+          "users": [
+            { "id": "12345", "name": "J. Smith" },
+            ...
+          ],
+          "courses": [
+            {
+              "id": "123",
+              "name": "Sample Course"
+            },
+            ...
+          ]
+        }
         """
         if group_id is None:
             return self.__get('groups')
@@ -360,7 +571,9 @@ class api(object):
 
         Example:
         >>> api.delete_group(1)
-        {'message': 'Operation completed successfully'}
+        {
+          "message": "Operation completed successfully"
+        }
         """
         data = {'group_id': int(group_id)}
 
@@ -378,33 +591,49 @@ class api(object):
          - A list of dicts with all branches' (without users and courses) if
            branch_id is not defined.
 
-        Examples:
-        >>> api.branches()
-        [{'id': '2',
-          'name': 'sample',
-          'description': 'Sample Branch',
-          'avatar': 'https://...',
-          'theme': 'Default',
-          'badge_set_id': '1',
-          'timezone': '(GMT -07:00) Pacific Time (US & Canada)',
-          'signup_method': 'email',
-          'internal_announcement': '...',
-          'external_announcement': '...',
-          'language': 'en',
-          'user_type_id': '4',
-          'user_type': 'Learner-Type',
-          'group_id': '8',
-          'registration_email_restriction': None,
-          'users_limit': None,
-          'disallow_global_login': '1',
-          'payment_processor': '',
-          'currency': 'US Dollar',
-          'paypal_email': '',
-          'ecommerce_subscription': '0',
-          'ecommerce_subscription_price': '0',
-          'ecommerce_subscription_interval': '',
-          'ecommerce_subscription_trial_period': '0',
-          'ecommerce_credits': '0'}, ... ]
+        Example:
+        >>> api.branches(123)
+        {
+          "id": "123",
+          "name": "sample",
+          "description": "...",
+          "avatar": "https://...",
+          "theme": "...",
+          "badge_set_id": "1",
+          "timezone": "...",
+          "signup_method": "email",
+          "internal_announcement": "...",
+          "external_announcement": "...",
+          "language": "en",
+          "user_type_id": "4",
+          "user_type": "Learner-Type",
+          "group_id": "8",
+          "registration_email_restriction": null,
+          "users_limit": null,
+          "disallow_global_login": "1",
+          "payment_processor": "",
+          "currency": "US Dollar",
+          "paypal_email": "",
+          "ecommerce_subscription": "0",
+          "ecommerce_subscription_price": "0",
+          "ecommerce_subscription_interval": "",
+          "ecommerce_subscription_trial_period": "0",
+          "ecommerce_credits": "0",
+          "users": [
+            {
+              "id": "40457",
+              "name": "J. Smith"
+            },
+            ...
+          ],
+          "courses": [
+            {
+              "id": "123",
+              "name": "Sample Course"
+            },
+            ...
+          ]
+        }
         """
         if branch_id is None:
             return self.__get('branches')
@@ -441,7 +670,9 @@ class api(object):
 
         Example:
         >>> api.delete_branch(1)
-        {'message': 'Operation completed successfully'}
+        {
+          "message": "Operation completed successfully"
+        }
         """
         data = {'branch_id': int(branch_id)}
 
@@ -461,7 +692,10 @@ class api(object):
 
         Example:
         >>> api.branch_set_status(84, False)
-        {'branch_id': '84', 'status': 'inactive'}
+        {
+          "branch_id": "84",
+          "status": "inactive"
+        }
         """
         return self.__get('branchsetstatus', {'branch_id': int(branch_id),
                                               'status': ('inactive', 'active')[status]})
@@ -485,7 +719,13 @@ class api(object):
 
         Example:
         >>> api.add_user_to_course(40457, 378)
-        [{'user_id': '40457', 'course_id': '378', 'role': 'learner'}]
+        [
+          {
+            "user_id": "40457",
+            "course_id": "378",
+            "role": "learner"
+          }
+        ]
         """
         return self.__post('addusertocourse', {'user_id': int(user_id),
                                                'course_id': int(course_id),
@@ -502,7 +742,11 @@ class api(object):
 
         Example:
         >>> api.remove_user_from_course(40457, 378)
-        {'user_id': '40457', 'course_id': '378', 'course_name': 'Sample Course'}
+        {
+          "user_id": "40457",
+          "course_id": "378",
+          "course_name": "Sample Course"
+        }
         """
         return self.__get('removeuserfromcourse', {'user_id': int(user_id),
                                                    'course_id': int(course_id)})
@@ -518,24 +762,31 @@ class api(object):
 
         Example:
         >>> api.get_user_status_in_course(3, 348)
-        {'role': 'learner',
-         'enrolled_on': '25/12/2019, 03:58:40',
-         'enrolled_on_timestamp': '1577246320',
-         'completion_status': 'Completed',
-         'completion_percentage': '100',
-         'completed_on': '25/12/2019, 03:58:50',
-         'completed_on_timestamp': '1577246330',
-         'expired_on': '',
-         'expired_on_timestamp': None,
-         'total_time': '0s',
-         'units': [{'id': '3163',
-                    'name': 'Introduction',
-                    'type': 'SCORM | xAPI | cmi5',
-                    'completion_status': 'Completed',
-                    'completed_on': '07/07/2020, 11:41:18',
-                    'completed_on_timestamp': '1594118478',
-                    'score': '',
-                    'total_time': '0s'}, ...]}
+        {
+          "role": "learner",
+          "enrolled_on": "25/12/2019, 03:58:40",
+          "enrolled_on_timestamp": "1577246320",
+          "completion_status": "Completed",
+          "completion_percentage": "100",
+          "completed_on": "25/12/2019, 03:58:50",
+          "completed_on_timestamp": "1577246330",
+          "expired_on": "",
+          "expired_on_timestamp": None,
+          "total_time": "0s",
+          "units": [
+            {
+              "id": "3163",
+              "name": "Introduction",
+              "type": "SCORM | xAPI | cmi5",
+              "completion_status": "Completed",
+              "completed_on": "07/07/2020, 11:41:18",
+              "completed_on_timestamp": "1594118478",
+              "score": "",
+              "total_time": "0s"
+            },
+            ...
+          ]
+        }
         """
         return self.__get('getuserstatusincourse', {'user_id': int(user_id),
                                                     'course_id': int(course_id)})
@@ -551,7 +802,9 @@ class api(object):
 
         Example:
         >>> api.reset_user_progress(3, 348)
-        {'message': 'Operation completed successfully'}
+        {
+          "message": "Operation completed successfully"
+        }
         """
         return self.__get('resetuserprogress', {'user_id': int(user_id),
                                                 'course_id': int(course_id)})
@@ -567,7 +820,11 @@ class api(object):
 
         Example:
         >>> api.add_user_to_branch(123, 83)
-        {'user_id': '123', 'branch_id': '83', 'branch_name': 'sample'}
+        {
+          "user_id": "123",
+          "branch_id": "83",
+          "branch_name": "sample"
+        }
         """
         return self.__get('addusertobranch', {'user_id': int(user_id),
                                               'branch_id': int(branch_id)})
@@ -583,7 +840,11 @@ class api(object):
 
         Example:
         >>> api.remove_user_from_branch(123, 83)
-        {'user_id': '123', 'branch_id': '83', 'branch_name': 'sample'}
+        {
+          "user_id": "123",
+          "branch_id": "83",
+          "branch_name": "sample"
+        }
         """
         return self.__get('removeuserfrombranch', {'user_id': int(user_id),
                                                    'branch_id': int(branch_id)})
@@ -599,7 +860,11 @@ class api(object):
 
         Example:
         >>> api.add_course_to_branch(208, 76)
-        {'course_id': '208', 'branch_id': '76', 'branch_name': 'test'}
+        {
+          "course_id": "208",
+          "branch_id": "76",
+          "branch_name": "test"
+        }
         """
         return self.__get('addcoursetobranch', {'course_id': int(course_id),
                                                 'branch_id': int(branch_id)})
@@ -615,7 +880,11 @@ class api(object):
 
         Example:
         >>> api.add_user_to_group(123, 'xxxxxxxxxxx')
-        {'user_id': '123', 'group_id': '83', 'group_name': 'Sample Group'}
+        {
+          "user_id": "123",
+          "group_id": "83",
+          "group_name": "Sample Group"
+        }
         """
         return self.__get('addusertogroup', {'user_id': int(user_id),
                                              'group_key': str(group_key)})
@@ -631,7 +900,11 @@ class api(object):
 
         Example:
         >>> api.remove_user_from_group(123, 83)
-        {'user_id': '123', 'group_id': '83', 'group_name': 'Sample Group'}
+        {
+          "user_id": "123",
+          "group_id": "83",
+          "group_name": "Sample Group"
+        }
         """
         return self.__get('removeuserfromgroup', {'user_id': int(user_id),
                                                   'group_id': int(group_id)})
@@ -649,7 +922,11 @@ class api(object):
 
         Example:
         >>> api.add_course_to_group(83, 208)
-        {'course_id': '208', 'group_id': '83', 'group_name': 'Sample Group'}
+        {
+          "course_id": "208",
+          "group_id": "83",
+          "group_name": "Sample Group"
+        }
         """
         return self.__get('addcoursetogroup', {'course_id': int(course_id),
                                                'group_id': int(group_id)})
@@ -668,19 +945,21 @@ class api(object):
 
         Example:
         >>> api.get_users_by_custom_field('Company LLC')
-        {'40457':
-          {'id': '40457',
-           'login': 'john.smith',
-           'first_name': 'John',
-           'last_name': 'Smith',
-           'email': 'johnsmith@example.org',
-           'status': 'active',
-           'language': 'English',
-           'deactivation_date': '',
-           'created_on': '22/08/2020, 11:20:31',
-           'last_updated': '23/08/2020, 05:55:01',
-           'last_updated_timestamp': '1598158501',
-           'certifications': []},
+        {
+          "40457": {
+            "id": "40457",
+            "login": "john.smith",
+            "first_name": "John",
+            "last_name": "Smith",
+            "email": "johnsmith@example.org",
+            "status": "active",
+            "language": "English",
+            "deactivation_date": "",
+            "created_on": "22/08/2020, 11:20:31",
+            "last_updated": "23/08/2020, 05:55:01",
+            "last_updated_timestamp": "1598158501",
+            "certifications": []
+          },
           ...
         }
         """
@@ -707,19 +986,23 @@ class api(object):
 
         Example:
         >>> api.get_custom_registration_fields()
-        {'Company Name': {
-            'key': 'custom_field_1',
-            'type': 'text',
-            'name': 'Company Name',
-            'mandatory': 'yes',
-            'visible_on_reports': 'yes',
-            'dropdown_values': '',
-            'checkbox_status': 'off',
-            'selective_availability': 'no',
-            'branch': None,
-            'main_domain_availability': None,
-            'previous_key': None,
-            'order': 1}, ... }
+        {
+          "Company Name": {
+            "key": "custom_field_1",
+            "type": "text",
+            "name": "Company Name",
+            "mandatory": "yes",
+            "visible_on_reports": "yes",
+            "dropdown_values": "",
+            "checkbox_status": "off",
+            "selective_availability": "no",
+            "branch": None,
+            "main_domain_availability": None,
+            "previous_key": None,
+            "order": 1
+          },
+          ...
+        }
         """
         custom_fields = self.__get('getcustomregistrationfields')
         return {f['name']: f for f in custom_fields}
@@ -736,20 +1019,27 @@ class api(object):
 
         Example:
         >>> api.category_leafs_and_courses(52)
-        {'21': {'id': '21',
-                'name': 'Sample Sub-category',
-                'price': '&#36;0.00',
-                'parent_category_id': '52',
-                'courses': [{'id': '17',
-                             'name': 'Sample Course',
-                             'description': '...',
-                             'shared': '1',
-                             'shared_url': 'https://...',
-                             'avatar': 'https://...',
-                             'big_avatar': 'https://...',
-                             'units': [ ... ]
-                            }]
-               }, ...
+        {
+          "21": {
+            "id": "21",
+            "name": "Sample Sub-category",
+            "price": "&#36;0.00",
+            "parent_category_id": "52",
+            "courses": [
+              {
+                "id": "17",
+                "name": "Sample Course",
+                "description": "...",
+                "shared": "1",
+                "shared_url": "https://...",
+                "avatar": "https://...",
+                "big_avatar": "https://...",
+                "units": [ ... ]
+              },
+              ...
+            ]
+          },
+          ...
         }
         """
         return self.__get('categoryleafsandcourses', {'id': int(category_id)})
@@ -766,12 +1056,13 @@ class api(object):
          - UserDoesNotExistError
          - UnitDoesNotExistError
 
-        Examples:
+        Example:
         >>> api.get_users_progress_in_units(123, 345)
-        {'user_id': '345', 'status': 'Not attempted', 'score': 0}
-
-        >>> api.get_users_progress_in_units(123)
-        [{'user_id': '345', 'status': 'Not attempted', 'score': 0}, ...]
+        {
+          "user_id": "345",
+          "status": "Not attempted",
+          "score": 0
+        }
         """
         data = {'unit_id': int(unit_id)}
 
@@ -790,24 +1081,29 @@ class api(object):
          - UserNotEnrolledError
 
         >>> api.get_test_answers(5678, 1234)
-        {'test_id': '5678',
-         'test_name': 'Sample Quiz',
-         'user_id': '1234',
-         'user_name': 'John Smith',
-         'score': '100.00%',
-         'completion_status': 'Passed',
-         'completed_on': '03/05/2017, 07:50:52',
-         'completed_on_timestamp': '1493794252',
-         'total_time': '3m 22s',
-         'questions': [
-             {'id': '123',
-              'text': "...",
-              'type': 'Multiple choice',
-              'weight': '1',
-              'correct': '1',
-              'answers': {'1': '...', '2': '...', '3': '...'},
-              'correct_answers': {'1': '...'},
-              'user_answers': {'1': '...'}}, ... ]
+        {
+          "test_id": "5678",
+          "test_name": "Sample Quiz",
+          "user_id": "1234",
+          "user_name": "John Smith",
+          "score": "100.00%",
+          "completion_status": "Passed",
+          "completed_on": "03/05/2017, 07:50:52",
+          "completed_on_timestamp": "1493794252",
+          "total_time": "3m 22s",
+          "questions": [
+            {
+              "id": "123",
+              "text": "...",
+              "type": "Multiple choice",
+              "weight": "1",
+              "correct": "1",
+              "answers": {"1": "...", "2": "...", "3": "..."},
+              "correct_answers": {"1": "..."},
+              "user_answers": {"1": "..."}
+            },
+            ...
+          ]
         }
         """
         return self.__get('gettestanswers', {'test_id': int(test_id),
@@ -823,24 +1119,25 @@ class api(object):
          - UserNotEnrolledError
 
         >>> api.get_survey_answers(123, 234)
-        {'survey_id': '123',
-         'survey_name': 'Course survey',
-         'user_id': '234',
-         'user_name': 'J. Smith',
-         'completion_status': 'Completed',
-         'completed_on': '23/11/2018, 08:30:27',
-         'completed_on_timestamp': '1542961827',
-         'total_time': '1m 51s',
-         'questions': [{'id': '4467',
-                        'text': '...',
-                        'type': 'Multiple choice',
-                        'answers': {'1': '...', '2': '...', '3': '...'},
-                        'user_answers': {'2': '...'}},
-                       {'id': '4470',
-                        'text': '...',
-                        'type': 'Free text',
-                        'answers': [],
-                        'user_answers': ['...']}, ... ]
+        {
+          "survey_id": "123",
+          "survey_name": "Course survey",
+          "user_id": "234",
+          "user_name": "J. Smith",
+          "completion_status": "Completed",
+          "completed_on": "23/11/2018, 08:30:27",
+          "completed_on_timestamp": "1542961827",
+          "total_time": "1m 51s",
+          "questions": [
+            {
+              "id": "4467",
+              "text": "...",
+              "type": "Multiple choice",
+              "answers": {"1": "...", "2": "...", "3": "..."},
+              "user_answers": {"2": "..."}
+            },
+            ...
+          ]
         }
         """
         return self.__get('getsurveyanswers', {'survey_id': int(survey_id), 'user_id': int(user_id)})
@@ -860,19 +1157,24 @@ class api(object):
 
         Example:
         >>> api.get_timeline('user_login_user')
-        [{'action': 'user_login_user',
-          'message': 'John Smith signed in',
-          'timestamp': '23/08/2020, 05:58:53',
-          'unix_timestamp': '1598158733',
-          'user_id': '40457',
-          'user_username': 'john.smith',
-          'user_email': 'john.smith@example.org',
-          'user_fullname': 'John Smith',
-          'object_id': '-',
-          'object_name': '-',
-          'secondary_object_id': '-',
-          'secondary_object_name': '-',
-          'event_counter': '1'}, ... ]
+        [
+          {
+            "action": "user_login_user",
+            "message": "John Smith signed in",
+            "timestamp": "23/08/2020, 05:58:53",
+            "unix_timestamp": "1598158733",
+            "user_id": "40457",
+            "user_username": "john.smith",
+            "user_email": "john.smith@example.org",
+            "user_fullname": "John Smith",
+            "object_id": "-",
+            "object_name": "-",
+            "secondary_object_id": "-",
+            "secondary_object_name": "-",
+            "event_counter": "1"
+          },
+          ...
+        ]
         """
         if event_type not in self.events.keys():
             raise ValueError('not a valid event type: %s' % (event_type, ))
@@ -886,16 +1188,18 @@ class api(object):
 
         Example:
         >>> api.siteinfo()
-        {'total_users': '1234',
-         'total_courses': '123',
-         'total_categories': '12',
-         'total_groups': '23',
-         'total_branches': '34',
-         'monthly_active_users': 123,
-         'signup_method': 'email',
-         'paypal_email': '',
-         'domain_map': 'learn.example.com',
-         'date_format': 'DDMMYYYY'}
+        {
+          "total_users": "1234",
+          "total_courses": "123",
+          "total_categories": "12",
+          "total_groups": "23",
+          "total_branches": "34",
+          "monthly_active_users": 123,
+          "signup_method": "email",
+          "paypal_email": "",
+          "domain_map": "learn.example.com",
+          "date_format": "DDMMYYYY"
+        }
         """
         return self.__get('siteinfo')
 
@@ -907,9 +1211,11 @@ class api(object):
 
         Example:
         >>> api.ratelimit()
-        {'limit': '10000',
-         'remaining': 9986,
-         'reset': '1598160603',
-         'formatted_reset': '23/08/2020, 06:30'}
+        {
+          "limit": "10000",
+          "remaining": 9986,
+          "reset": "1598160603",
+          "formatted_reset": "23/08/2020, 06:30"
+        }
         """
         return self.__get('ratelimit')
