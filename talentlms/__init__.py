@@ -1,3 +1,20 @@
-from __future__ import absolute_import
-
-from talentlms.talentlms import *
+from .api import api
+from .exceptions import (
+    BranchDoesNotExistError,
+    CategoryDoesNotExistError,
+    CourseDoesNotExistError,
+    CourseExistsError,
+    GroupDoesNotExistError,
+    InvalidArgumentsError,
+    InvalidRequestError,
+    PasswordIncorrectError,
+    TalentLMSError,
+    UnitDoesNotExistError,
+    UserAlreadyEnrolledError,
+    UserAlreadyExistsError,
+    UserDeletedError,
+    UserDoesNotExistError,
+    UserInactiveError,
+    UserNotEnrolledError,
+    WeakPasswordError,
+)

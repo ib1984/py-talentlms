@@ -1,13 +1,10 @@
-
 import json
+from urllib.parse import quote_plus
 
 import requests
 from requests.auth import HTTPBasicAuth
 
-try:
-    from urllib import quote_plus
-except ImportError:
-    from urllib.parse import quote_plus
+from .exceptions import raise_error
 
 
 class api(object):
@@ -62,45 +59,44 @@ class api(object):
         'automation_update_automation': 'Automation update',
         'reports_create_custom_report': 'Custom report creation',
         'reports_delete_custom_report': 'Custom report deletion',
-        'reports_update_custom_report': 'Custom report update'}
+        'reports_update_custom_report': 'Custom report update'
+    }
 
     def __init__(self, domain, api_key, ssl=True):
-        self.domain = domain
-        self.ssl = ssl
-        self.api_url = '{}://{}/api/v1'.format(['http', 'https'][ssl], domain)
+        protocol = ('http', 'https')[ssl]
+        self.api_url = f'{protocol}://{domain}/api/v1'
         self.auth = HTTPBasicAuth(api_key, '')
 
-    def get(self, api_method, api_params={}):
+    def get(self, api_method, api_params=None):
         """Send a GET API request to TalentLMS.
 
         api_method is an API endpoint and should not contain spaces, e.g.: 'users'"""
         params_list = []
 
-        for param, val in api_params.items():
-            params_list.append(quote_plus(str(param)) + ':' + quote_plus(str(val), safe='@'))
+        if api_params is not None:
+            for param, val in api_params.items():
+                params_list.append(quote_plus(str(param)) + ':' + quote_plus(str(val), safe='@'))
 
-        params_list.sort()
+            params_list.sort()
+
         get_params = ','.join(params_list)
-
-        resp = requests.get('{}/{}/{}'.format(self.api_url, api_method, get_params),
-                            auth=self.auth)
+        resp = requests.get(f'{self.api_url}/{api_method}/{get_params}', auth=self.auth)
         result = json.loads(resp.text)
 
         if result is not None and 'error' in result:
-            raise_error(result['error']['message'], api_params)
+            raise_error(result['error']['message'], (api_method, api_params))
 
         return result
 
-    def post(self, api_method, api_params={}):
+    def post(self, api_method, api_params=None):
         """Send a POST API request to TalentLMS.
 
         api_method is an API endpoint and should not contain spaces, e.g.: 'users'"""
-        resp = requests.post('{}/{}'.format(self.api_url, api_method), data=api_params,
-                             auth=self.auth)
+        resp = requests.post(f'{self.api_url}/{api_method}', data=api_params, auth=self.auth)
         result = json.loads(resp.text)
 
         if result is not None and 'error' in result:
-            raise_error(result['error']['message'], api_params)
+            raise_error(result['error']['message'], (api_method, api_params))
 
         return result
 
@@ -171,7 +167,7 @@ class api(object):
 
         return self.post('userlogout', data)
 
-    def user_signup(self, first_name, last_name, email, login, password, custom_fields={}):
+    def user_signup(self, first_name, last_name, email, login, password, custom_fields=None):
         """Create a user.
 
         Argument custom_fields is a dict with custom field names as keys.
@@ -186,13 +182,15 @@ class api(object):
         ...                 'XXXXXXXX', {'custom_field_1': 'Company LLC'})
         {'id': 40456, 'login': 'john.smith', 'first_name': 'John', ... }
         """
+        if custom_fields is not None:
+            custom_fields = {}
+
         return self.post('usersignup', {'first_name': first_name,
                                         'last_name': last_name,
                                         'email': email,
                                         'login': login,
                                         'password': password,
-                                        **custom_fields
-                                        })
+                                        **custom_fields})
 
     def delete_user(self, user_id, deleted_by_user_id=None, permanent=False):
         """Delete a user.
@@ -268,8 +266,8 @@ class api(object):
         else:
             return self.get('courses', {'id': int(course_id)})
 
-    def create_course(self, name, description, code=None, price=None,
-                      time_limit=None, category_id=None, creator_id=None):
+    def create_course(self, name, description, code=None, price=None, time_limit=None,
+                      category_id=None, creator_id=None):
         """???"""
         raise NotImplementedError
 
@@ -351,8 +349,7 @@ class api(object):
         else:
             return self.get('groups', {'id': int(group_id)})
 
-    def create_group(self, name, description=None, key=None, price=None,
-                     creator_id=None, max_redemptions=None):
+    def create_group(self, name, description=None, key=None, price=None, creator_id=None, max_redemptions=None):
         """???"""
         raise NotImplementedError
 
@@ -454,8 +451,20 @@ class api(object):
         return self.post('deletebranch', data)
 
     def branch_set_status(self, branch_id, status):
-        """???"""
-        raise NotImplementedError
+        """Set branch status.
+
+        The 'status' is boolean: True - branch is activated, False - branch is
+        deactivated.
+
+        Returns dict with 'branch_id' and updated 'status', or raises
+        BranchDoesNotExistError.
+
+        Example:
+        >>> api.branch_set_status(84, False)
+        {'branch_id': '84', 'status': 'inactive'}
+        """
+        return self.get('branchsetstatus', {'branch_id': int(branch_id),
+                                            'status': ('inactive', 'active')[status]})
 
     def forgot_username(self, email, domain_url):
         """???"""
@@ -548,12 +557,36 @@ class api(object):
                                               'course_id': int(course_id)})
 
     def add_user_to_branch(self, user_id, branch_id):
-        """???"""
-        raise NotImplementedError
+        """Add a user to a branch.
+
+        Returns a dict with keys ['user_id', 'branch_id', 'branch_name'], or
+        raises an appropriate exception:
+         - UserDoesNotExistError
+         - BranchDoesNotExistError
+         - UserAlreadyEnrolledError
+
+        Example:
+        >>> api.add_user_to_branch(123, 83)
+        {'user_id': '123', 'branch_id': '83', 'branch_name': 'sample'}
+        """
+        return self.get('addusertobranch', {'user_id': int(user_id),
+                                            'branch_id': int(branch_id)})
 
     def remove_user_from_branch(self, user_id, branch_id):
-        """???"""
-        raise NotImplementedError
+        """Remove user from a branch.
+
+        Returns a dict with keys ['user_id', 'branch_id', 'branch_name'], or
+        raises an appropriate exception:
+         - UserDoesNotExistError
+         - BranchDoesNotExistError
+         - UserNotEnrolledError
+
+        Example:
+        >>> api.remove_user_from_branch(123, 83)
+        {'user_id': '123', 'branch_id': '83', 'branch_name': 'sample'}
+        """
+        return self.get('removeuserfrombranch', {'user_id': int(user_id),
+                                                 'branch_id': int(branch_id)})
 
     def add_course_to_branch(self, course_id, branch_id):
         """Add the course to the branch.
@@ -572,19 +605,56 @@ class api(object):
                                               'branch_id': int(branch_id)})
 
     def add_user_to_group(self, user_id, group_key):
-        """???"""
-        raise NotImplementedError
+        """Add a user to a group.
+
+        Returns a dict with keys ['user_id', 'group_id', 'group_name'], or
+        raises an appropriate exception:
+         - UserDoesNotExistError
+         - GroupDoesNotExistError
+         - UserAlreadyEnrolledError
+
+        Example:
+        >>> api.add_user_to_group(123, 'xxxxxxxxxxx')
+        {'user_id': '123', 'group_id': '83', 'group_name': 'Sample Group'}
+        """
+        return self.get('addusertogroup', {'user_id': int(user_id),
+                                           'group_key': str(group_key)})
 
     def remove_user_from_group(self, user_id, group_id):
-        """???"""
-        raise NotImplementedError
+        """Remove a user from a group.
+
+        Returns a dict with keys ['user_id', 'group_id', 'group_name'], or
+        raises an appropriate exception:
+         - UserDoesNotExistError
+         - GroupDoesNotExistError
+         - UserNotEnrolledError
+
+        Example:
+        >>> api.remove_user_from_group(123, 83)
+        {'user_id': '123', 'group_id': '83', 'group_name': 'Sample Group'}
+        """
+        return self.get('removeuserfromgroup', {'user_id': int(user_id),
+                                                'group_id': int(group_id)})
 
     def add_course_to_group(self, course_id, group_id):
-        """???"""
-        raise NotImplementedError
+        """Add a course to a group.
 
-    def go_to_course(self, user_id, course_id, logout_redirect=None,
-                     course_completed_redirect=None,
+        Returns a dict with keys ['course_id', 'group_id', 'group_name'], or
+        raises an appropriate exception:
+         - CourseDoesNotExistError
+         - GroupDoesNotExistError
+         - CourseExistsError
+
+        IMPORTANT: Group members are not automatically enrolled in the course.
+
+        Example:
+        >>> api.add_course_to_group(83, 208)
+        {'course_id': '208', 'group_id': '83', 'group_name': 'Sample Group'}
+        """
+        return self.get('addcoursetogroup', {'course_id': int(course_id),
+                                             'group_id': int(group_id)})
+
+    def go_to_course(self, user_id, course_id, logout_redirect=None, course_completed_redirect=None,
                      header_hidden_options=None):
         """???"""
         raise NotImplementedError
@@ -614,14 +684,12 @@ class api(object):
           ...
         }
         """
-        return self.get('getusersbycustomfield',
-                        {'custom_field_value': custom_field_value})
+        return self.get('getusersbycustomfield', {'custom_field_value': custom_field_value})
 
     def get_courses_by_custom_field(self, custom_field_value):
         """Get all courses with custom_field_value in one of their custom
         fields."""
-        return self.get('getcoursesbycustomfield',
-                        {'custom_field_value': custom_field_value})
+        return self.get('getcoursesbycustomfield', {'custom_field_value': custom_field_value})
 
     def buy_course(self, user_id, course_id, coupon=None):
         """???"""
@@ -686,17 +754,96 @@ class api(object):
         """
         return self.get('categoryleafsandcourses', {'id': int(category_id)})
 
-    def get_user_progress_in_units(self, user_id, unit_id):
-        """???"""
-        raise NotImplementedError
+    def get_users_progress_in_units(self, unit_id, user_id=None):
+        """Get user(s) progress in a unit.
+
+        Returns:
+         - A dict with keys ['user_id', 'status', 'score'], if 'user_id' is
+           defined
+         - A list of such dicts, if 'user_id' is not defined.
+
+        Or raises an appropriate exception:
+         - UserDoesNotExistError
+         - UnitDoesNotExistError
+
+        Examples:
+        >>> api.get_users_progress_in_units(123, 345)
+        {'user_id': '345', 'status': 'Not attempted', 'score': 0}
+
+        >>> api.get_users_progress_in_units(123)
+        [{'user_id': '345', 'status': 'Not attempted', 'score': 0}, ...]
+        """
+        data = {'unit_id': int(unit_id)}
+
+        if user_id is not None:
+            data['user_id'] = user_id
+
+        return self.get('getusersprogressinunits', data)
 
     def get_test_answers(self, test_id, user_id):
-        """???"""
-        raise NotImplementedError
+        """Get user's answers on a test.
+
+        Returns a dictionary with test results (see example below), or raises
+        an appropriate exception:
+         - UnitDoesNotExistError
+         - UserDoesNotExistError
+         - UserNotEnrolledError
+
+        >>> api.get_test_answers(5678, 1234)
+        {'test_id': '5678',
+         'test_name': 'Sample Quiz',
+         'user_id': '1234',
+         'user_name': 'John Smith',
+         'score': '100.00%',
+         'completion_status': 'Passed',
+         'completed_on': '03/05/2017, 07:50:52',
+         'completed_on_timestamp': '1493794252',
+         'total_time': '3m 22s',
+         'questions': [
+             {'id': '123',
+              'text': "...",
+              'type': 'Multiple choice',
+              'weight': '1',
+              'correct': '1',
+              'answers': {'1': '...', '2': '...', '3': '...'},
+              'correct_answers': {'1': '...'},
+              'user_answers': {'1': '...'}}, ... ]
+        }
+        """
+        return self.get('gettestanswers', {'test_id': int(test_id),
+                                           'user_id': int(user_id)})
 
     def get_survey_answers(self, survey_id, user_id):
-        """???"""
-        raise NotImplementedError
+        """Get user's answers on a survey.
+
+        Returns a dictionary with survey answers (see example below), or raises
+        an appropriate exception:
+         - UnitDoesNotExistError
+         - UserDoesNotExistError
+         - UserNotEnrolledError
+
+        >>> api.get_survey_answers(123, 234)
+        {'survey_id': '123',
+         'survey_name': 'Course survey',
+         'user_id': '234',
+         'user_name': 'J. Smith',
+         'completion_status': 'Completed',
+         'completed_on': '23/11/2018, 08:30:27',
+         'completed_on_timestamp': '1542961827',
+         'total_time': '1m 51s',
+         'questions': [{'id': '4467',
+                        'text': '...',
+                        'type': 'Multiple choice',
+                        'answers': {'1': '...', '2': '...', '3': '...'},
+                        'user_answers': {'2': '...'}},
+                       {'id': '4470',
+                        'text': '...',
+                        'type': 'Free text',
+                        'answers': [],
+                        'user_answers': ['...']}, ... ]
+        }
+        """
+        return self.get('getsurveyanswers', {'survey_id': int(survey_id), 'user_id': int(user_id)})
 
     def get_ilt_sessions(self, ilt_id):
         """???"""
@@ -728,7 +875,7 @@ class api(object):
           'event_counter': '1'}, ... ]
         """
         if event_type not in self.events.keys():
-            raise ValueError('not a valid event type: %s' % (event_type,))
+            raise ValueError('not a valid event type: %s' % (event_type, ))
 
         return self.get('gettimeline', {'event_type': event_type})
 
@@ -766,92 +913,3 @@ class api(object):
          'formatted_reset': '23/08/2020, 06:30'}
         """
         return self.get('ratelimit')
-
-
-class TalentLMSError(Exception):
-    def __init__(self, msg, request_params):
-        exc_msg = '{} {}'.format(msg, request_params)
-        super(TalentLMSError, self).__init__(exc_msg)
-        self.message = msg
-        self.request_params = request_params
-
-
-class InvalidRequestError(TalentLMSError):
-    pass
-
-
-class InvalidArgumentsError(TalentLMSError):
-    pass
-
-
-class UserAlreadyExistsError(TalentLMSError):
-    pass
-
-
-class UserAlreadyEnrolledError(TalentLMSError):
-    pass
-
-
-class UserNotEnrolledError(TalentLMSError):
-    pass
-
-
-class UserDoesNotExistError(TalentLMSError):
-    pass
-
-
-class UserInactiveError(TalentLMSError):
-    pass
-
-
-class WeakPasswordError(TalentLMSError):
-    pass
-
-
-class PasswordIncorrectError(TalentLMSError):
-    pass
-
-
-class CourseExistsError(TalentLMSError):
-    pass
-
-
-class CourseDoesNotExistError(TalentLMSError):
-    pass
-
-
-class CategoryDoesNotExistError(TalentLMSError):
-    pass
-
-
-class GroupDoesNotExistError(TalentLMSError):
-    pass
-
-
-class BranchDoesNotExistError(TalentLMSError):
-    pass
-
-
-def raise_error(message, params):
-    exc_map = {
-        'The requested API action does not exist': InvalidRequestError,
-        'Invalid arguments provided': InvalidArgumentsError,
-        'The requested user does not exist': UserDoesNotExistError,
-        'A user with the same email address already exists': UserAlreadyExistsError,
-        'A user with the same login already exists': UserAlreadyExistsError,
-        'The requested user is already enrolled in this course': UserAlreadyEnrolledError,
-        'The requested user is not enrolled in this course': UserNotEnrolledError,
-        'Password is not strong enough (should have at least (1) upper case letter, at least (1) lower case letter, at least (1) number, at least (8) characters in length)': WeakPasswordError,
-        'The requested course is already a member of this branch': CourseExistsError,
-        'Your account is inactive. Please activate the account using the instructions sent to you via e-mail. If you did not receive the e-mail, check your spam folder.': UserInactiveError,
-        'Your login or password is incorrect. Please try again, making sure that CAPS LOCK key is off': PasswordIncorrectError,
-        'The requested course does not exist': CourseDoesNotExistError,
-        'The requested category does not exist': CategoryDoesNotExistError,
-        'The requested group does not exist': GroupDoesNotExistError,
-        'The requested branch does not exist': BranchDoesNotExistError,
-    }
-
-    e = exc_map.get(message, TalentLMSError)
-
-    raise e(message, params)
-
