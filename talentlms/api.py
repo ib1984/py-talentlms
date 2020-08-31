@@ -459,10 +459,59 @@ class api:
 
         return self._get('courses', {'id': int(course_id)})
 
-    def create_course(self, name, description, code=None, price=None, time_limit=None,
-                      category_id=None, creator_id=None):
-        """???"""
-        raise NotImplementedError
+    def create_course(self, name, description=None, category_id=None, **kwargs):
+        """Create a course.
+
+        Supported keyword arguments:
+         - 'code' (str): course code, e.g. 'CS101'.
+         - 'price' (float): price of the course.
+         - 'time_limit' (int): number of days while course is active after enrollment.
+         - 'creator_id' (int): id of the course author.
+
+        Returns dict with the new course's properties.
+
+        Example:
+        >>> c = api.create_course('Sample Course', category_id=12)
+        {
+          "id": 123,
+          "name": "Sample Course",
+          "code": "",
+          "category_id": "12",
+          "description": "",
+          "price": "&#36;0.00",
+          "status": "active",
+          "creation_date": "27/08/2020, 11:20:13",
+          "last_update_on": "27/08/2020, 11:20:13",
+          "creator_id": "1",
+          "hide_from_catalog": "0",
+          "time_limit": "0",
+          "level": null,
+          "shared": "0",
+          "shared_url": "",
+          "avatar": "https://...",
+          "big_avatar": "https://...",
+          "certification": null,
+          "certification_duration": null
+        }
+        """
+        data = {'name': name}
+
+        if description is not None:
+            data['description'] = description
+
+        if category_id is not None:
+            data['category_id'] = category_id
+
+        allowed_kwargs = ['code', 'price', 'time_limit', 'creator_id']
+        kwarg_types = {'code': str, 'price': float, 'time_limit': int, 'creator_id': int}
+
+        for k, v in kwargs.items():
+            if k not in allowed_kwargs:
+                raise KeyError(f'Unknown keyword argument: {k}')
+            elif v is not None:
+                data[k] = kwarg_types[k](v)
+
+        return self._post('createcourse', data)
 
     def delete_course(self, course_id, deleted_by_user_id=None):
         """Delete a course.
@@ -563,8 +612,9 @@ class api:
     def create_group(self, name, description=None, key=None, **kwargs):
         """Create a group.
 
-        The 'key' (str) argument is a group key, which users can use to join the group. It is
-        recommended to set it, since 'add_user_to_group' requires the key to add user to a group.
+        The 'key' (str) argument is a group key, which users can use to join
+        the group. It is recommended to set it, since 'add_user_to_group'
+        requires the key to add user to a group.
 
         Supported keyword arguments:
          - 'price' (float): price for the group's courses.
@@ -602,7 +652,8 @@ class api:
         for k, v in kwargs.items():
             if k not in allowed_kwargs:
                 raise KeyError(f'Unknown keyword argument: {k}')
-            data[k] = kwarg_types[k](v)
+            elif v is not None:
+                data[k] = kwarg_types[k](v)
 
         return self._post('creategroup', data)
 
