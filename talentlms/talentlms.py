@@ -219,8 +219,8 @@ class api(object):
     def category_leafs_and_courses(self, category_id):
         return self.get('categoryleafsandcourses', {'id': category_id})
 
-    def get_user_progress_in_units(self, user_id, unit_id):
-        raise NotImplementedError
+    def get_user_progress_in_units(self, unit_id, user_id):
+        return self.get('getusersprogressinunits', {'unit_id': unit_id, 'user_id': user_id})
 
     def get_test_answers(self, test_id, user_id):
         raise NotImplementedError
